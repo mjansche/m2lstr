@@ -37,6 +37,14 @@ class WffTest(unittest.TestCase):
         self.assertEqual(str(g), '∃²Y [[x < Y] ∨ [x == Y]]')
         return
 
+    def test_simplify(self):
+        x = wff.Variable('x')
+        f = wff.Forall(x, wff.Symbol('a', x) | wff.Symbol('b', x))
+        self.assertEqual(str(f), '∀¹x ["a"(x) ∨ "b"(x)]')
+        g = wff.simplify(f)
+        self.assertEqual(str(g), '¬∃²x [Singleton(x) ∧ [¬"a"(x) ∧ ¬"b"(x)]]')
+        return
+
 
 if __name__ == '__main__':
     unittest.main()

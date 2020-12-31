@@ -70,21 +70,24 @@ class WFF:
     def __invert__(self) -> 'WFF':
         return Not(self)
 
+    def accept(self, visitor: 'Visitor'):
+        raise NotImplementedError
+
 
 class Exists(WFF):
     """Existentially quantified formula."""
 
-    def __init__(self, variable: 'Variable', wff: WFF):
+    def __init__(self, variable: 'Variable', body: WFF):
         self.variable = variable
-        self.wff = wff
+        self.body = body
         return
 
     def __repr__(self):
-        return 'Exists({!r}, {!r})'.format(self.variable, self.wff)
+        return 'Exists({!r}, {!r})'.format(self.variable, self.body)
 
     def __str__(self):
         return '∃{}{} {}'.format(
-            self.variable.order_pretty(), self.variable, self.wff)
+            self.variable.order_pretty(), self.variable, self.body)
 
     def accept(self, visitor: 'Visitor'):
         return visitor.visit_exists(self)
@@ -93,17 +96,17 @@ class Exists(WFF):
 class Forall(WFF):
     """Universally quantified formula."""
 
-    def __init__(self, variable: Variable, wff: WFF):
+    def __init__(self, variable: Variable, body: WFF):
         self.variable = variable
-        self.wff = wff
+        self.body = body
         return
 
     def __repr__(self):
-        return 'Forall({!r}, {!r})'.format(self.variable, self.wff)
+        return 'Forall({!r}, {!r})'.format(self.variable, self.body)
 
     def __str__(self):
         return '∀{}{} {}'.format(
-            self.variable.order_pretty(), self.variable, self.wff)
+            self.variable.order_pretty(), self.variable, self.body)
 
     def accept(self, visitor: 'Visitor'):
         return visitor.visit_forall(self)
@@ -112,15 +115,15 @@ class Forall(WFF):
 class Not(WFF):
     """Logical negation of a propositional formula."""
 
-    def __init__(self, wff: WFF):
-        self.wff = wff
+    def __init__(self, body: WFF):
+        self.body = body
         return
 
     def __repr__(self):
-        return 'Not({!r})'.format(self.wff)
+        return 'Not({!r})'.format(self.body)
 
     def __str__(self):
-        return '¬{}'.format(self.wff)
+        return '¬{}'.format(self.body)
 
     def accept(self, visitor: 'Visitor'):
         return visitor.visit_not(self)
@@ -321,3 +324,110 @@ class Visitor:
 
     def visit_symbol(self, formula: Symbol):
         raise NotImplementedError
+
+
+class IdentityVisitor(Visitor):
+    """Visitor that traverses a formula and makes an identical copy."""
+    # pylint: disable=no-self-use
+
+    def visit_exists(self, formula: Exists) -> WFF:
+        body = formula.body.accept(self)
+        return self.make_exists(formula.variable, body)
+
+    def make_exists(self, variable: Variable, body: WFF) -> WFF:
+        return Exists(variable, body)
+
+    def visit_forall(self, formula: Forall) -> WFF:
+        body = formula.body.accept(self)
+        return self.make_forall(formula.variable, body)
+
+    def make_forall(self, variable: Variable, body: WFF) -> WFF:
+        return Forall(variable, body)
+
+    def visit_not(self, formula: Not) -> WFF:
+        body = formula.body.accept(self)
+        return self.make_not(body)
+
+    def make_not(self, body: WFF) -> WFF:
+        return Not(body)
+
+    def visit_and(self, formula: And) -> WFF:
+        left = formula.left.accept(self)
+        right = formula.right.accept(self)
+        return self.make_and(left, right)
+
+    def make_and(self, left: WFF, right: WFF) -> WFF:
+        return And(left, right)
+
+    def visit_if(self, formula: If) -> WFF:
+        left = formula.left.accept(self)
+        right = formula.right.accept(self)
+        return self.make_if(left, right)
+
+    def make_if(self, left: WFF, right: WFF) -> WFF:
+        return If(left, right)
+
+    def visit_or(self, formula: Or) -> WFF:
+        left = formula.left.accept(self)
+        right = formula.right.accept(self)
+        return self.make_or(left, right)
+
+    def make_or(self, left: WFF, right: WFF) -> WFF:
+        return Or(left, right)
+
+    def visit_contained_in(self, formula: ContainedIn) -> WFF:
+        return formula
+
+    def visit_equal(self, formula: Equal) -> WFF:
+        return formula
+
+    def visit_less(self, formula: Less) -> WFF:
+        return formula
+
+    def visit_singleton(self, formula: Singleton) -> WFF:
+        return formula
+
+    def visit_symbol(self, formula: Symbol) -> WFF:
+        return formula
+
+
+class ConnectiveEliminationVisitor(IdentityVisitor):
+    """Visitor that eliminates Forall, If, and Or using De Morgan dualities."""
+
+    def make_forall(self, variable: Variable, body: WFF) -> WFF:
+        return ~Exists(variable, ~body)
+
+    def make_if(self, left: WFF, right: WFF) -> WFF:
+        return ~(left & ~right)
+
+    def make_or(self, left: WFF, right: WFF) -> WFF:
+        return ~(~left & ~right)
+
+
+class DoubleNegationEliminationVisitor(IdentityVisitor):
+    """Visitor that eliminates double negation."""
+
+    def make_not(self, body: WFF) -> WFF:
+        if isinstance(body, Not):
+            return body.body
+        return ~body
+
+
+class FirstOrderReplacementVisitor(IdentityVisitor):
+    """Visitor that replaces first-order with second-order quantification."""
+
+    def make_exists(self, variable: Variable, body: WFF) -> WFF:
+        if variable.order == 1:
+            variable = Variable(variable.name, 2)
+            # Strictly speaking we should replace all free occurrences of
+            # the old variable inside the body with the new one.  However,
+            # promoting a first-order variable to a second-order variable
+            # imposes no new restrictions, so we skip this step.
+            body = Singleton(variable) & body
+        return Exists(variable, body)
+
+
+def simplify(formula: WFF) -> WFF:
+    return formula.accept(ConnectiveEliminationVisitor()) \
+                  .accept(DoubleNegationEliminationVisitor()) \
+                  .accept(FirstOrderReplacementVisitor())
