@@ -25,3 +25,8 @@ py_test(
     srcs = ["tests/wff_test.py"],
     deps = [":wff"],
 )
+
+py_library(
+    name = "dfa",
+    srcs = ["m2lstr/dfa.py"],
+)
