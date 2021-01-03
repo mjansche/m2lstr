@@ -30,3 +30,23 @@ py_library(
     name = "dfa",
     srcs = ["m2lstr/dfa.py"],
 )
+
+py_library(
+    name = "translation",
+    srcs = ["m2lstr/translation.py"],
+    deps = [
+        ":dfa",
+        ":wff",
+    ],
+)
+
+py_test(
+    name = "translation_test",
+    size = "small",
+    srcs = ["tests/translation_test.py"],
+    deps = [
+        ":dfa",
+        ":translation",
+        ":wff",
+    ],
+)
