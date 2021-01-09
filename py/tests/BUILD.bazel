@@ -14,39 +14,20 @@
 
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
-py_library(
-    name = "wff",
-    srcs = ["m2lstr/wff.py"],
-)
-
 py_test(
     name = "wff_test",
     size = "small",
-    srcs = ["tests/wff_test.py"],
-    deps = [":wff"],
-)
-
-py_library(
-    name = "dfa",
-    srcs = ["m2lstr/dfa.py"],
-)
-
-py_library(
-    name = "translation",
-    srcs = ["m2lstr/translation.py"],
-    deps = [
-        ":dfa",
-        ":wff",
-    ],
+    srcs = ["wff_test.py"],
+    deps = ["//m2lstr:wff"],
 )
 
 py_test(
     name = "translation_test",
     size = "small",
-    srcs = ["tests/translation_test.py"],
+    srcs = ["translation_test.py"],
     deps = [
-        ":dfa",
-        ":translation",
-        ":wff",
+        "//m2lstr:dfa",
+        "//m2lstr:translation",
+        "//m2lstr:wff",
     ],
 )
