@@ -1,0 +1,11 @@
+[BASIC]
+docstring-min-length=3
+good-names-rgxs=^[a-km-z]$
+no-docstring-rgx=(^test_)|(.*Test$)
+
+[MESSAGES CONTROL]
+disable=useless-return
+
+[DESIGN]
+max-args=6
+min-public-methods=1
